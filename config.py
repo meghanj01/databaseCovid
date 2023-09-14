@@ -1,2 +1,4 @@
-DT_FORMAT = ''
-CATEGORY =[]
+#Configurations
+
+DT_FORMAT = '%Y-%m-%d %H:%M:%S'
+CATEGORY =['Cardiologist', 'Pediatrician', 'Dermatologist']

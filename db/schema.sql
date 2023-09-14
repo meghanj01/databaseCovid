@@ -1,8 +1,8 @@
 -- DROP TABLE IF EXISTS Patients;
--- DROP TABLE IF EXISTS Appointment
--- DROP TABLE IF EXISTS AppointmentInfo
--- DROP TABLE IF EXISTS Doctor
--- DROP TABLE IF EXISTS Hospital 
+-- DROP TABLE IF EXISTS Appointment;
+-- DROP TABLE IF EXISTS AppointmentInfo;
+-- DROP TABLE IF EXISTS Doctor;
+-- DROP TABLE IF EXISTS Hospital; 
 
 
 CREATE TABLE Patients (
@@ -29,7 +29,8 @@ CREATE TABLE DoctorHospital (
     
     CONSTRAINT FK_hospital_id FOREIGN KEY (hospital_id)
     REFERENCES Hospital(id)
-)
+);
+
 CREATE TABLE Hospital(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     hospital_name TEXT NOT NULL,
@@ -40,7 +41,7 @@ CREATE TABLE Appointment(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     start_time TIMESTAMP  NOT NULL,
     end_time TIMESTAMP NOT NULL,
-    duration TEXT NOT NULL,
+    duration INTEGER NOT NULL,
     doctor_hospital_id INTEGER,
     CONSTRAINT FK_doctor_hospital_id FOREIGN KEY (doctor_hospital_id)
     REFERENCES DoctorHospital(id)
@@ -55,6 +56,6 @@ CREATE TABLE AppointmentInfo(
     CONSTRAINT FK_patient_id FOREIGN KEY (patient_id)
     REFERENCES Patients(id),
     CONSTRAINT FK_appointment_id FOREIGN KEY (appointment_id)
-    REFERENCES Appointment(id),
+    REFERENCES Appointment(id)
 );
 

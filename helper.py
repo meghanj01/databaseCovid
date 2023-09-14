@@ -1,43 +1,146 @@
-from flask import abort
+from flask import abort, make_response, jsonify
+import db.db as database
 
 def check_slots(db, request):
-    # execution of db quries should be handled in try catch statements 
-    #future scope club these 2 queries in one query
-    try :
+    """
+    Check available appointment slots based on the request.
+
+    Args:
+    - db: Database connection.
+    - request: JSON request data containing appointment details.
+
+    Returns:
+    - Appointment ID if a slot is available.
+    - Raises an HTTP 500 error if there's an internal server error.
+    - Raises an HTTP 400 error if no slots are available.
+    """
+
+    try:
+        appointment_id = None
+        # durations is number and in minutes 
+        # future scope club these 2 query into single query
+        #query can be optimised further
         query = f"""
-                select a.id
-                from Appointment a
-                INNER JOIN DoctorHospital dh
-                INNER JOIN Doctor d
-                where a.start_time = {request['time']} and a.duration <= {request['duration']} 
-                    and dh.doctor_id = d.id and d.spelization = {request['category']}
+                SELECT a.id
+                FROM Appointment a
+                -- LEFT JOIN AppointmentInfo ai ON a.id = ai.appointment_id 
+                INNER JOIN DoctorHospital dh ON a.doctor_hospital_id = dh.id 
+                -- INNER JOIN Doctor d ON dh.doctor_id = d.id 
+                WHERE 
+                -- ai.appointment_id is null
+                a.id not in (select appointment_id from AppointmentInfo)
+                AND a.start_time = "{request['time']}"
+                AND a.duration <= {int(request['duration'])}  
+                -- AND d.specilzation = "{request['category']}"
                 """
+
         cur = db.cursor()
         cur.execute(query)
         result = cur.fetchone()
-        if result :
-            query = f""" insert into AppointmentInfo (appointment_id, patient_id) 
-            values (result, {request['patient_id']})"""
+        if result:
+            query = f"""INSERT INTO AppointmentInfo (appointment_id, patient_id)
+                        VALUES ({result[0]}, {request['patient_id']});"""
             cur.execute(query)
-            appointment_id = cur.fetchone()
+            appointment_id = cur.lastrowid
             db.commit()
-        abort('Sorry appointment is not available, please check the available slots again')
-        cur.close()
-        return appointment_id
+            cur.close()
     except Exception as ex:
-        abort('Internal server error', 500)
+        abort(make_response(jsonify(message = f'Internal server error: {ex}'), 500))
+    if appointment_id:
+        return appointment_id
+    abort(make_response(jsonify(message = 'Sorry, no appointment slots are  available. Please check the available slots again'), 404))
+
 
 def get_all_open_appointments(db):
-    try :
-        query = """ select * from  Appointment a LEFT JOIN AppointmentInfo ai ON a.id = ai.appointment_id"""
+    """
+    Retrieve a list of all open appointments.
+
+    Args:
+    - db: Database connection.
+
+    Returns:
+    - List of open appointment details.
+    - Raises an HTTP 404 error if no appointments are available.
+    """
+
+    query = """SELECT
+                a.start_time, a.end_time, a.duration, d.specilzation AS specilzation,
+                h.hospital_name AS hospital_name, h.pincode AS pincode
+                
+                FROM Appointment a
+                
+                LEFT JOIN AppointmentInfo ai ON a.id = ai.appointment_id
+                JOIN DoctorHospital dh ON a.doctor_hospital_id = dh.id
+                JOIN Doctor d ON d.id = dh.doctor_id
+                JOIN Hospital h ON h.id = dh.hospital_id
+                """
+    result = database.db_execute(db, query)
+    if not result:
+        abort(make_response(jsonify(message = 'No appointments available'), 404))
+    return result
+
+
+def get_appointment_id(db, id):
+    """
+    Retrieve an appointment by its ID.
+
+    Args:
+    - db: Database connection.
+    - id: Appointment ID to retrieve.
+
+    Returns:
+    - Appointment details.
+    - Raises an HTTP 400 error if the ID is incorrect.
+    - Raises an HTTP 500 error if there's an internal server error.
+    """
+
+    try:
+        query = f"""SELECT ai.id as id, p.patient_name, a.start_time, a.end_time, 
+                a.duration, d.specilzation, h.hospital_name, h.pincode
+                
+                FROM AppointmentInfo ai
+                JOIN Appointment a ON a.id = ai.appointment_id
+                JOIN DoctorHospital dh ON dh.id = a.doctor_hospital_id
+                JOIN Doctor d ON d.id = dh.doctor_id
+                JOIN Hospital h ON h.id = dh.hospital_id
+                JOIN Patients p ON ai.patient_id = p.id 
+                
+                WHERE ai.id = {id}
+                """
+        
         cur = db.cursor()
         cur.execute(query)
-        result = cur.fetchall()
-        if not result:
-            abort('No appointments available', 404)
-        return result
+        result = cur.fetchone()
+        db.close()
+
+        if result :
+            return result
+
+        abort(make_response(jsonify(message = "Appointment ID is not correct"), 404))
+
+    #more generalised exceptions we can use sql exceptions here
     except Exception as ex:
-        abort('Internal server error', 500)
-        
-        
-    
+        db.close()
+        abort(make_response(jsonify({"message": f"Internal server error: {ex}"}), 500))
+
+
+def cancel_appointment_by_id(db, id):
+    """
+    Cancel an appointment by its ID.
+
+    Args:
+    - db: Database connection.
+    - id: Appointment ID to cancel.
+
+    Returns:
+    - None.
+    - Raises an HTTP 500 error if there's an internal server error.
+    """
+
+    try:
+        query = f'DELETE FROM AppointmentInfo WHERE id = {id}'
+        cur = db.cursor()
+        cur.execute(query)
+        db.commit()
+    except Exception as ex:
+        abort(make_response(jsonify(message = f'Internal server error: {ex}'), 500))
