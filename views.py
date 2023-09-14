@@ -5,7 +5,9 @@ from validation import validate_post_request, validate_patient_profile, \
 from helper import check_slots, get_all_open_appointments, get_appointment_id, \
                     cancel_appointment_by_id
 
-# Create a Flask application
+from flask import g
+
+# Create a Flask blueprint
 appointment = Blueprint('appointment', __name__)
 
 

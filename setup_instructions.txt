@@ -1,0 +1,10 @@
+commands to execute:
+    To DELETE and RECREATE DB
+        cd db
+        python db_init.py
+        cd ..
+    TO RUN SERVER
+    set EXPORT_APP=app.py
+    python app.py or python -m flask run
+
+
