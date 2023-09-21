@@ -2,6 +2,7 @@ from flask import abort, make_response, jsonify
 import config
 from datetime import datetime
 
+
 def validate_post_request(request):
     """
     Validate a POST request for creating a new appointment.
@@ -12,21 +13,22 @@ def validate_post_request(request):
     Returns:
     - None: Raises an HTTP 400 error if validation fails.
     """
-    if not request.get('time'):
-        abort(make_response(jsonify(message = 'time is not given'), 400))
+    if not request.get("time"):
+        abort(make_response(jsonify(message="time is not given"), 400))
 
     try:
-        datetime.strptime(request['time'], config.DT_FORMAT)
+        datetime.strptime(request["time"], config.DT_FORMAT)
     except ValueError as ex:
-        abort(make_response(jsonify(message = f'Invalid datetime {ex}'), 400))
+        abort(make_response(jsonify(message=f"Invalid datetime {ex}"), 400))
 
     # Future scope for hour validation to handle partial slots
     # Convert duration to seconds
-    if not request['duration'] or request['duration'] not in range(15, 60, 15):
-        abort(make_response(jsonify( message = 'Invalid duration'), 400))
+    if not request["duration"] or request["duration"] not in range(15, 75, 15):
+        abort(make_response(jsonify(message="Invalid duration"), 400))
 
-    if not request['category'] or request['category'] not in config.CATEGORY:
-        abort(make_response(jsonify('Invalid category'), 400))
+    if not request["category"] or request["category"] not in config.CATEGORY:
+        abort(make_response(jsonify("Invalid category"), 400))
+
 
 def validate_patient_profile(db, name, insurance):
     """
@@ -42,15 +44,17 @@ def validate_patient_profile(db, name, insurance):
     - Raises an HTTP 400 error if validation fails.
     """
     if name and insurance:
-        query = f'SELECT id FROM Patients WHERE patient_name = "{name}" AND insurance = "{insurance}"'
+        query = f"SELECT id FROM Patients WHERE patient_name = ? AND insurance = ?"
         cur = db.cursor()
-        cur.execute(query)
+        cur.execute(query, (name, insurance))
         result = cur.fetchone()
         cur.close()
-        if not result :
-            abort(make_response(jsonify(message = 'Patient record doesnot exists'), 400))
-        return result
-    abort(make_response(jsonify(message = 'Please enter Name and insurance'), 400))
+        if not result:
+            abort(make_response(jsonify(message="Patient record doesnot exists"), 400))
+        (id,) = result
+        return id
+    abort(make_response(jsonify(message="Please enter Name and insurance"), 400))
+
 
 def validate_appointment_id(db, id):
     """
@@ -65,16 +69,18 @@ def validate_appointment_id(db, id):
     - Raises an HTTP 400 error if validation fails.
     """
     try:
-        query = f'SELECT id FROM AppointmentInfo WHERE id = {id}'
+        query = f"SELECT id FROM AppointmentInfo WHERE id = ?"
         cur = db.cursor()
-        cur.execute(query)
+        cur.execute(query, (id,))
         result = cur.fetchone()
-      
+
     except Exception as ex:
         db.close()
-        abort(make_response(jsonify(message = f'Internal server error {ex}'), 500))
+        abort(make_response(jsonify(message=f"Internal server error {ex}"), 500))
 
-    if result :
+    if result:
         return result
     else:
-        abort(make_response(jsonify(message = 'Invalid appointment id, please check'), 404))
+        abort(
+            make_response(jsonify(message="Invalid appointment id, please check"), 404)
+        )

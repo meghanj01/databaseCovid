@@ -2,17 +2,19 @@ from flask import Flask, g
 import sqlite3
 from views import appointment
 
-#create flask application
+# create flask application
 app = Flask(__name__)
 
-#register the apps
+# register the apps
 app.register_blueprint(appointment)
+
 
 @app.route("/")
 def index():
     print("Index running!")
 
-#before request and after request can be used to create db connection and close db connection future scope
+
+# before request and after request can be used to create db connection and close db connection future scope
 # @app.before_request
 # def before_request_func():
 #     print("before_request executing!")
@@ -26,4 +28,4 @@ def index():
 #     return response
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0")

@@ -1,6 +1,7 @@
 from flask import abort, make_response, jsonify
 import db.db as database
 
+
 def check_slots(db, request):
     """
     Check available appointment slots based on the request.
@@ -17,11 +18,12 @@ def check_slots(db, request):
 
     try:
         appointment_id = None
-        # durations is number and in minutes 
+        # durations is number and in minutes
         # future scope club these 2 query into single query
-        #query can be optimised further
+        # query can be optimised further
         query = f"""
-                SELECT a.id
+                INSERT INTO AppointmentInfo (appointment_id, patient_id)
+                SELECT a.id, ?
                 FROM Appointment a
                 -- LEFT JOIN AppointmentInfo ai ON a.id = ai.appointment_id 
                 INNER JOIN DoctorHospital dh ON a.doctor_hospital_id = dh.id 
@@ -29,26 +31,30 @@ def check_slots(db, request):
                 WHERE 
                 -- ai.appointment_id is null
                 a.id not in (select appointment_id from AppointmentInfo)
-                AND a.start_time = "{request['time']}"
-                AND a.duration <= {int(request['duration'])}  
-                -- AND d.specilzation = "{request['category']}"
+                AND a.start_time = ?
+                AND a.duration <= ?
+                -- AND d.specilzation = ?
                 """
-
         cur = db.cursor()
-        cur.execute(query)
+        cur.execute(
+            query, (request["patient_id"], request["time"], int(request["duration"]))
+        )
         result = cur.fetchone()
-        if result:
-            query = f"""INSERT INTO AppointmentInfo (appointment_id, patient_id)
-                        VALUES ({result[0]}, {request['patient_id']});"""
-            cur.execute(query)
-            appointment_id = cur.lastrowid
-            db.commit()
-            cur.close()
+        appointment_id = cur.lastrowid
+        db.commit()
+        cur.close()
     except Exception as ex:
-        abort(make_response(jsonify(message = f'Internal server error: {ex}'), 500))
+        abort(make_response(jsonify(message=f"Internal server error: {ex}"), 500))
     if appointment_id:
         return appointment_id
-    abort(make_response(jsonify(message = 'Sorry, no appointment slots are  available. Please check the available slots again'), 404))
+    abort(
+        make_response(
+            jsonify(
+                message="Sorry, no appointment slots are  available. Please check the available slots again"
+            ),
+            404,
+        )
+    )
 
 
 def get_all_open_appointments(db):
@@ -73,10 +79,11 @@ def get_all_open_appointments(db):
                 JOIN DoctorHospital dh ON a.doctor_hospital_id = dh.id
                 JOIN Doctor d ON d.id = dh.doctor_id
                 JOIN Hospital h ON h.id = dh.hospital_id
+                WHERE ai.appointment_id is null
                 """
     result = database.db_execute(db, query)
     if not result:
-        abort(make_response(jsonify(message = 'No appointments available'), 404))
+        abort(make_response(jsonify(message="No appointments available"), 404))
     return result
 
 
@@ -105,20 +112,20 @@ def get_appointment_id(db, id):
                 JOIN Hospital h ON h.id = dh.hospital_id
                 JOIN Patients p ON ai.patient_id = p.id 
                 
-                WHERE ai.id = {id}
+                WHERE ai.id = ?
                 """
-        
+
         cur = db.cursor()
-        cur.execute(query)
+        cur.execute(query, (id,))
         result = cur.fetchone()
         db.close()
 
-        if result :
+        if result:
             return result
 
-        abort(make_response(jsonify(message = "Appointment ID is not correct"), 404))
+        abort(make_response(jsonify(message="Appointment ID is not correct"), 404))
 
-    #more generalised exceptions we can use sql exceptions here
+    # more generalised exceptions we can use sql exceptions here
     except Exception as ex:
         db.close()
         abort(make_response(jsonify({"message": f"Internal server error: {ex}"}), 500))
@@ -138,9 +145,9 @@ def cancel_appointment_by_id(db, id):
     """
 
     try:
-        query = f'DELETE FROM AppointmentInfo WHERE id = {id}'
+        query = f"DELETE FROM AppointmentInfo WHERE id = ?"
         cur = db.cursor()
-        cur.execute(query)
+        cur.execute(query, (id,))
         db.commit()
     except Exception as ex:
-        abort(make_response(jsonify(message = f'Internal server error: {ex}'), 500))
+        abort(make_response(jsonify(message=f"Internal server error: {ex}"), 500))
